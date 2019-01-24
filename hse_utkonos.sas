@@ -64,20 +64,7 @@ data avail_c; /*преобразование типов*/
   avail = input(_avail,commax32.);
 run;
 /*-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
-/*2. Денормализация данных. Оставим только яйца*/
-proc sql;
-  create table denorm as
-  select t1.product,t1.product_nm,t1.ui1_nm,t1.ui2,t1.ui2_nm,t1.ui3,t1.ui3_nm,t1.promo_sap,
-      t1.promo_type_sap,t1.promo_site,t1.promo_type_site,t1.order_cancel,t1.date,sum(t1.sales) as sales,
-      sum(t1.margin) as margin,t2.avail
-  from items_c t1 left join avail_c t2
-  on t1.date=t2.date and t1.product=t2.product
-  where t1.ui1_nm='Яйцо'
-  group by t1.product,t1.product_nm,t1.ui1_nm,t1.ui2,t1.ui2_nm,t1.ui3,t1.ui3_nm,t1.promo_sap,
-      t1.promo_type_sap,t1.promo_site,t1.promo_type_site,t1.order_cancel,t1.date,t2.avail
-  order by t1.product,t1.date,t1.promo_sap;
-quit;
-/* список категорий items_c*/
+/*2. список категорий items_c*/
 proc sql;
 select distinct ui2_nm, ui3_nm from items_c;
 quit;
@@ -178,8 +165,9 @@ by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
     end;
 run;
 /*3.2 Подготовка данных для понедельного прогноза.*/
+libname utkns ' /courses/d827f023ba27fe300';
 proc sql;
-   create table denorm_week as 
+   create table utkns.denorm_week as 
    select product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, sum(promo) as promo, intnx('week.2',date,0) as date format=date9., coalesce(sum(sales_rest),0) as sales, 
    avg(ifn(promo=0,price,.)) as price_reg, avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr
    from sales_rest
@@ -188,7 +176,7 @@ proc sql;
    ;
 quit;
 /*заметна ли разница между продажами и спросом?*/
-proc sgplot data=denorm_week(where=(date>'1jan2017'd));
+proc sgplot data=utkns.denorm_week(where=(date>'1jan2017'd));
   series x=date y=sales;
   series x=date y=sales_nr;
   by product;
@@ -196,7 +184,7 @@ run;
 /*Какие проблемы у этого алгоритма восстановления спроса?*/
 /*Как их исправить?*/
 /*3.3 Создание базовых прогнозов */
-proc esm data=denorm_week(where=(date<'20nov2017'd)) out=predict_esm lead=4;
+proc esm data=utkns.denorm_week(where=(date<'20nov2017'd)) out=predict_esm lead=4;
    id date interval=week.2 accumulate=total;
    by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
    forecast sales ;
