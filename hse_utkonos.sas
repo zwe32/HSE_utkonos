@@ -192,7 +192,7 @@ run;
 proc sql;
   create table to_plot as select 
   t1.*,ifn('20nov2017'd<=t2.date<='11dec2017'd,ifn(t2.sales>1e-3,t2.sales,0),.) as pred_sales from
-  denorm_week t1 left join predict_esm t2 on t1.date=t2.date and t1.product=t2.product
+  utkns.denorm_week t1 left join predict_esm t2 on t1.date=t2.date and t1.product=t2.product
   order by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, date;
 quit;
 proc sgplot data=to_plot(where=(date>'1jan2017'd));
