@@ -112,7 +112,7 @@ run;
 proc timedata data=denorm_exp1 outarrays=sales_rest;
 id date interval=day; 
 by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
- var sales promo avail price;
+ var sales promo avail price margin promo_site promo_sap;
    outarrays sales_rest;
    restored=0;
    do t = 2 to _LENGTH_; /*цикл по каждому ряду с одинаковыми значениями "by"*/
@@ -168,51 +168,11 @@ run;
 libname utkns ' /courses/d827f023ba27fe300';
 proc sql;
    create table utkns.denorm_week as 
-   select product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, sum(promo) as promo, intnx('week.2',date,0) as date format=date9., coalesce(sum(sales_rest),0) as sales, 
-   avg(ifn(promo=0,price,.)) as price_reg, avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr
+   select product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, sum(promo) as promo, sum(promo_site) as promo_site, sum(promo_sap) as promo_sap,
+   intnx('week.2',date,0) as date format=date9., coalesce(sum(sales_rest),0) as sales, 
+   avg(ifn(promo=0,price,.)) as price_reg, avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr, sum(margin)/sum(sales) as price_fact
    from sales_rest
    group by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, calculated date
    order by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, calculated date
    ;
 quit;
-/*заметна ли разница между продажами и спросом?*/
-proc sgplot data=utkns.denorm_week(where=(date>'1jan2017'd));
-  series x=date y=sales;
-  series x=date y=sales_nr;
-  by product;
-run;
-/*Какие проблемы у этого алгоритма восстановления спроса?*/
-/*Как их исправить?*/
-/*3.3 Создание базовых прогнозов */
-proc esm data=utkns.denorm_week(where=(date<'20nov2017'd)) out=predict_esm lead=4;
-   id date interval=week.2 accumulate=total;
-   by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
-   forecast sales ;
-run;
-proc sql;
-  create table to_plot as select 
-  t1.*,ifn('20nov2017'd<=t2.date<='11dec2017'd,ifn(t2.sales>1e-3,t2.sales,0),.) as pred_sales from
-  utkns.denorm_week t1 left join predict_esm t2 on t1.date=t2.date and t1.product=t2.product
-  order by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, date;
-quit;
-proc sgplot data=to_plot(where=(date>'1jan2017'd));
-  series x=date y=sales;
-  scatter x=date y=pred_sales;
-  by product;
-run;
-/*-=-=-=-=-=-=-=-=-=-=*/
-/* proc timeseries data=denorm_week out=denorm_week1; */
-/* id date interval=week.2 start='05JAN2015'd end='03JAN2018'd; */
-/* by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm; */
-/* var price_reg / setmiss=previous; */
-/* var promo / setmiss=0;  */
-/* var sales ; */
-/* run; */
-
-/* proc arima data=denorm_week1 out=predict_arima; */
-/*    by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm; */
-/*    identify var=sales /*crosscorr=(promo price_reg)*/; */
-/*    estimate q=(1) p=(1) /*input=( promo price_reg )*/; */
-/*    Forecast */
-/*    forecast back=7 lead=4 id=date interval=week.2; */
-/* run; */
