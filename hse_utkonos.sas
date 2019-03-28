@@ -1,4 +1,5 @@
 /*1. Импорт данных*/
+/*filename source 'C:\Users\rusdmz\Documents\SASUniversityEdition\myfolders\utkonos_public\items.csv' encoding="cp1251" lrecl=32767;*/
 filename source '~/my_content/items.csv' encoding="cp1251" lrecl=32767;
 proc import datafile=source out=work.items dbms=csv replace;
   datarow=2;
@@ -44,6 +45,7 @@ proc sql;
   group by ui2_nm;
 quit;
 
+*filename source 'C:\Users\rusdmz\Documents\SASUniversityEdition\myfolders\utkonos_public\storehouse_available.csv' encoding="cp1251" lrecl=32767;
 filename source '~/my_content/storehouse_available.csv' encoding="cp1251" lrecl=32767;
 proc import datafile=source out=avail dbms=csv replace;
   datarow=2;
@@ -112,7 +114,7 @@ run;
 proc timedata data=denorm_exp1 outarrays=sales_rest;
 id date interval=day; 
 by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
- var sales promo avail price margin promo_site promo_sap;
+ var sales promo avail price margin promo_site promo_sap ;
    outarrays sales_rest;
    restored=0;
    do t = 2 to _LENGTH_; /*цикл по каждому ряду с одинаковыми значениями "by"*/
@@ -165,14 +167,46 @@ by product product_nm ui1_nm ui2 ui2_nm ui3 ui3_nm;
     end;
 run;
 /*3.2 Подготовка данных для понедельного прогноза.*/
-libname utkns ' /courses/d827f023ba27fe300';
-proc sql;
+*libname utkns 'C:\Users\rusdmz\Documents\SASUniversityEdition\myfolders\utkonos_public';
+libname utkns '/courses/dv7sz0t83p5s0c4u2FeO2';
+proc sql ;
    create table utkns.denorm_week as 
-   select product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, sum(promo) as promo, sum(promo_site) as promo_site, sum(promo_sap) as promo_sap,
-   intnx('week.2',date,0) as date format=date9., coalesce(sum(sales_rest),0) as sales, 
-   avg(ifn(promo=0,price,.)) as price_reg, avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr, sum(margin)/sum(sales) as price_fact
+   select product, product_nm as product_nm, 
+   ui1_nm as ui1,
+   ui2_nm as ui2,
+   ui3_nm as ui3,
+   intnx('week.2',date,0) as date format=date9. ,
+   sum(promo) as promo , sum(promo_site) as promo_site, sum(promo_sap) as promo_sap ,
+   coalesce(sum(sales_rest),0) as sales, avg(ifn(promo=0,price,.)) as price_reg, 
+   avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr, sum(margin)/sum(sales) as price_fact,
+   avg(avail) as avail
    from sales_rest
-   group by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, calculated date
-   order by product, product_nm, ui1_nm, ui2, ui2_nm, ui3, ui3_nm, calculated date
+   group by 1,2,3,4,5,6
+   order by 1,2,3,4,5,6
    ;
+quit;
+proc sql ;
+   create table utkns.denorm_day as 
+   select product, product_nm as product_nm, 
+   ui1_nm as ui1,
+   ui2_nm as ui2,
+   ui3_nm as ui3,
+   date format=date9. ,
+   sum(promo) as promo , sum(promo_site) as promo_site, sum(promo_sap) as promo_sap ,
+   coalesce(sum(sales_rest),0) as sales, avg(ifn(promo=0,price,.)) as price_reg, 
+   avg(ifn(promo=1,price,.)) as price_prom,coalesce(sum(sales),0) as sales_nr, sum(margin)/sum(sales) as price_fact,
+   avg(avail) as avail
+   from sales_rest
+   group by 1,2,3,4,5,6
+   order by 1,2,3,4,5,6
+   ;
+quit;
+/*проверка на иерархичность*/
+proc sql;
+select distinct t1.product_nm, t1.ui3, t2.product_nm, t2.ui3 from utkns.denorm_week t1,  utkns.denorm_week t2
+where t1.product_nm=t2.product_nm and t1.ui3 ne t2.ui3;
+select distinct t1.ui3, t1.ui2, t2.ui3, t2.ui2 from utkns.denorm_week t1,  utkns.denorm_week t2
+where t1.ui3=t2.ui3 and t1.ui2 ne t2.ui2;
+select distinct t1.ui2, t1.ui1, t2.ui2, t2.ui1 from utkns.denorm_week t1,  utkns.denorm_week t2
+where t1.ui2=t2.ui2 and t1.ui1 ne t2.ui1;
 quit;
