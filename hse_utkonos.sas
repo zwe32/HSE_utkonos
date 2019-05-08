@@ -1,7 +1,7 @@
 /*1. Импорт данных*/
 /*filename source 'C:\Users\rusdmz\Documents\SASUniversityEdition\myfolders\utkonos_public\items.csv' encoding="cp1251" lrecl=32767;*/
 filename source '~/my_content/items.csv' encoding="cp1251" lrecl=32767;
-proc import datafile=source out=work.items dbms=csv replace;
+proc import datafile=source out=work.items dbms=csv replace;GETNAMES=NO;
   datarow=2;
 run;
 /*Сырье/Товар ID,Сырье/Товар Наименование,Группа Закупок,Товарная иерархия (уровень 2) ID,
@@ -47,7 +47,7 @@ quit;
 
 *filename source 'C:\Users\rusdmz\Documents\SASUniversityEdition\myfolders\utkonos_public\storehouse_available.csv' encoding="cp1251" lrecl=32767;
 filename source '~/my_content/storehouse_available.csv' encoding="cp1251" lrecl=32767;
-proc import datafile=source out=avail dbms=csv replace;
+proc import datafile=source out=avail dbms=csv replace;GETNAMES=NO;
   datarow=2;
 run;
 /*Дата ,Сырье/Товар ID,"Наличие, %"*/
